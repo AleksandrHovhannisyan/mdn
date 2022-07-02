@@ -448,6 +448,7 @@ The output is as follows:
 
 Event bubbling and capture are terms that describe phases in how the browser handles events targeted at nested elements.
 
+<!-- TODO: this doesn't need to be its own section; the code and a brief explainer can go above in "Event bubbling and capture", and then we can have four sections: bubbling, capturing, stopping event propagation, and event delegation -->
 ### Setting a listener on a parent element
 
 Consider a web page like this:
@@ -456,55 +457,60 @@ Consider a web page like this:
 <div id="container">
   <button>Click me!</button>
 </div>
-<pre id="output"></pre>
+<output id="output"></output>
 ```
 
-Here the button is inside another element, a {{HTMLElement("div")}} element. We say that the `<div>` element here is the **parent** of the element it contains. What happens if we add a click event handler to the parent, then click the button?
+The button is defined inside an enclosing element—in this case, a {{HTMLElement("div")}} element. We say that the `<div>` element here is the **parent** of the element it contains (the **child**). What happens if we add a click event handler to the container but click its child?
 
 ```js
+const container = document.querySelector('#container');
 const output = document.querySelector('#output');
+
 function handleClick(e) {
-  output.textContent += `You clicked on a ${e.currentTarget.tagName} element\n`;
+  output.innerHTML += `You clicked on a ${e.currentTarget.tagName}<br>`;
 }
 
-const container = document.querySelector('#container');
 container.addEventListener('click', handleClick);
 ```
 
 {{ EmbedLiveSample('Setting a listener on a parent element', '100%', 200, "", "") }}
 
-You'll see that the parent fires a click event when the user clicks the button:
+If you run this code sample, you should notice that the parent fires a click event when the button is clicked:
 
 ```
-You clicked on a DIV element
+You clicked on a DIV
 ```
 
-This makes sense: the button is inside the `<div>`, so when you click the button you're also implicitly clicking the element it is inside.
+This should make sense: The button is inside the `<div>`, so when you click the button, you're also implicitly clicking its parent. In fact, as we're about to learn in the next section, this event doesn't just stop at the immediate parent—it travels all the way up the DOM to the very root of the document, firing a click event on every parent element along the way.
 
 ### Bubbling example
 
-What happens if we add event listeners to the button _and_ the parent?
+So far, we've worked with simplified markup containing only a `<div>`, a button, and an output element. But in reality, these elements are also enclosed in the {{HTMLElement("body")}}, which in turn is a child of the document root ({{HTMLElement("html")}}):
 
 ```html
-<body>
-  <div id="container">
-    <button>Click me!</button>
-  </div>
-  <pre id="output"></pre>
-</body>
+<html>
+  <!-- <head> somewhere here -->
+  <body>
+    <div id="container">
+      <button>Click me!</button>
+    </div>
+    <output id="output"></output>
+  </body>
+</html>
 ```
 
-Let's try adding click event handlers to the button, its parent (the `<div>`), and the {{HTMLElement("body")}} element that contains both of them:
+Let's see what happens when we add click event handlers to the button, its parent (the `<div>`), the `<body>` element that contains both of them, and the root `<html>` element that encloses the entire document:
 
 ```js
-const output = document.querySelector('#output');
-function handleClick(e) {
-  output.textContent += `You clicked on a ${e.currentTarget.tagName} element\n`;
-}
-
 const container = document.querySelector('#container');
 const button = document.querySelector('button');
+const output = document.querySelector('#output');
 
+function handleClick(e) {
+  output.innerHTML += `You clicked on a ${e.currentTarget.tagName}<br>`;
+}
+
+document.documentElement.addEventListener('click', handleClick);
 document.body.addEventListener('click', handleClick);
 container.addEventListener('click', handleClick);
 button.addEventListener('click', handleClick);
@@ -512,24 +518,32 @@ button.addEventListener('click', handleClick);
 
 {{ EmbedLiveSample('Bubbling example', '100%', 200, "", "") }}
 
-You'll see that all three elements fire a click event when the user clicks the button:
+When a user clicks the button, all four elements fire a click event:
 
 ```
-You clicked on a BUTTON element
-You clicked on a DIV element
-You clicked on a BODY element
+You clicked on a BUTTON
+You clicked on a DIV
+You clicked on a BODY
+You clicked on a HTML
 ```
 
-In this case:
+In this example, we have the following sequence of events:
 
-- the click on the button fires first
-- followed by the click on its parent (the `<div>` element)
-- followed by the `<div>` element's parent (the `<body>` element).
+1. A click event that first fires on the event target (`<button>`).
+2. A click event on the target's immediate parent (`<div>`).
+3. A click event on the parent's parent (`<body>`).
+4. A click event on the document root (`<html>`).
 
-We describe this by saying that the event **bubbles up** from the innermost element that was clicked.
+This process—where an event fires on the innermost target and also on each parent element on its way back up to the root—is known as **event bubbling**. We say that the event *bubbles up* from its target to its parents, much like a bubble formed underwater rises to the surface.
 
-This behavior can be useful and can also cause unexpected problems. In the next section we'll see a problem that it causes, and find the solution.
+> **Note:** An event will bubble up to a parent element even if that parent doesn't have a registered listener for the event. In this example, we didn't add an explicit click event listener to the {{domxref("Window")}} object, but the event does bubble up to it eventually. Think of it this way: If a tree falls in a forest, it still makes a sound even if nobody's around to hear it.
 
+> **Note:** Not all events are guaranteed to bubble up from their target. Whether a particular event bubbles can be determined by checking the read-only {{domxref("Event.bubbles", "Event.bubbles")}} property. Most events bubble, but some don't.
+
+<!-- TODO: discuss the problems only after mentioning event delegation; otherwise, this ordering makes it seem more problematic than beneficial -->
+Event bubbling is useful, but it can also cause some unexpected problems if we're not careful with how we handle events. In the next section, we'll explore and solve one such problem.
+
+<!-- TODO: rename section to "Stopping event propagation" -->
 ### Video player example
 
 Open up the [show-video-box.html](https://mdn.github.io/learning-area/javascript/building-blocks/events/show-video-box.html) example in a new tab (and the [source code](https://github.com/mdn/learning-area/blob/main/javascript/building-blocks/events/show-video-box.html) in another tab.) It is also available live below:
